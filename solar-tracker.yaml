@@ -1,0 +1,219 @@
+esphome:
+  name: esphome-web-84e8a8
+  friendly_name: Solar Tracker OTA
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "*Your Own API*"
+
+ota:
+
+sun:
+  latitude: 53.80921°
+  longitude: -3.50435°
+
+globals:
+  - id: west_count
+    type: int
+    restore_value: no
+    initial_value: '14'
+
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Esphome-Web-84E8A8"
+    password: "*Your Own Password*"
+
+captive_portal:
+
+sensor:
+
+  - platform: sun
+    name: Sun Elevation
+    type: elevation
+    
+  - platform: sun
+    name: Sun Azimuth
+    type: azimuth
+    on_value_range:
+      - above: 167.0
+        below: 168.0
+        then:
+          - switch.turn_on: azimuth_west
+      - above: 172.0
+        below: 173.0
+        then:
+          - switch.turn_on: azimuth_west
+      - above: 177.0
+        below: 178.0
+        then:
+          - switch.turn_on: azimuth_west
+      - above: 182.0
+        below: 183.0
+        then:
+          - switch.turn_on: azimuth_west
+      - above: 187.0
+        below: 188.0
+        then:
+          - switch.turn_on: azimuth_west
+      - above: 192.0
+        below: 193.0
+        then:
+          - switch.turn_on: azimuth_west
+      - above: 197.0
+        below: 198.0
+        then:
+          - switch.turn_on: azimuth_west
+      - above: 202.0
+        below: 203.0
+        then:
+          - switch.turn_on: azimuth_west
+      - above: 207.0
+        below: 208.0
+        then:
+          - switch.turn_on: azimuth_west
+      - above: 212.0
+        below: 213.0
+        then:
+          - switch.turn_on: azimuth_west
+      - above: 217.0
+        below: 218.0
+        then:
+          - switch.turn_on: azimuth_west
+      - above: 222.0
+        below: 223.0
+        then:
+          - switch.turn_on: azimuth_west
+      - above: 227.0
+        below: 228.0
+        then:
+          - switch.turn_on: azimuth_west
+      - above: 232.0
+        below: 233.0
+        then:
+          - switch.turn_on: azimuth_west
+          
+  - platform: adc
+    id: current
+    name: "Current"
+    pin: GPIO36
+    accuracy_decimals: 6
+    update_interval: 10s
+    attenuation: auto
+
+  - platform: adc
+    id: voltage
+    name: "Voltage"
+    pin: GPIO39
+    accuracy_decimals: 6
+    update_interval: 10s
+    attenuation: auto
+
+  - platform: template
+    id: panel_current
+    name: "Panel Current"
+    accuracy_decimals: 6
+    lambda: 'return (id(current).state - 2.57) * 10.0;'
+    update_interval: 10s
+    unit_of_measurement: "A"
+    icon: "mdi:solar-power"
+    device_class: "current"
+
+  - platform: template
+    id: batt_voltage
+    name: "Battery Voltage"
+    accuracy_decimals: 6
+    lambda: 'return id(voltage).state * 5.0;'
+    update_interval: 10s
+    unit_of_measurement: "V"
+    icon: "mdi:solar-power"
+    device_class: "voltage"
+
+  - platform: template
+    id: panel_power
+    name: "Panel Power"
+    accuracy_decimals: 6
+    lambda: 'return id(panel_current).state * id(batt_voltage).state ;'
+    update_interval: 10s
+    unit_of_measurement: "W"
+    icon: "mdi:solar-power"
+    device_class: "power"
+
+  - platform: template
+    id: moves_west
+    name: "West Moves"
+    accuracy_decimals: 0
+    lambda: 'return id(west_count);'
+    update_interval: 10s
+    icon: "mdi:solar-power"
+
+switch:
+  - platform: gpio
+    pin:
+      number: GPIO13
+      inverted: true
+    name: "West"
+    id: west
+    interlock: [east]
+
+  - platform: gpio
+    pin:
+      number: GPIO25
+      inverted: true
+    name: "East"
+    id: east
+    interlock: [west]
+
+  - platform: gpio
+    pin:
+      number: GPIO27
+      inverted: true
+    name: "North"
+    id: north
+    interlock: [south]
+
+  - platform: gpio
+    pin:
+      number: GPIO26
+      inverted: true
+    name: "South"
+    id: south
+    interlock: [north]
+
+  - platform: template
+    name: "Azimuth West"
+    id: azimuth_west
+    turn_on_action:
+        - switch.turn_on: east
+        - delay: 1.5s
+        - switch.turn_off: east
+        - lambda: 'id(west_count) -= 1;'
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+    timezone: Europe/London
+    on_time:
+      - seconds: 05
+        minutes: 00
+        hours: 07
+        then:
+          - switch.turn_on: west
+          - delay: 30s
+          - switch.turn_off: west
+          - globals.set:
+              id: west_count
+              value: '0'
